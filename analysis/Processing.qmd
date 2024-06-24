@@ -1,0 +1,151 @@
+---
+title: "Processing"
+author: "John Sterrett"
+date: "2024-06-21"
+output: html_document
+---
+
+Using QIIME2-2021.4.
+Raw sequences are in a dir `../raw_sequences/`, and metadata.txt holds the metadata.
+
+# Import 
+```{zsh, eval=F}
+qiime tools import \
+--type EMPPairedEndSequences \
+--input-path ../raw_sequences/ \
+--output-path ../import/paired-end-sequences.qza
+
+```
+
+# Demux
+```{zsh, eval=F}
+qiime demux emp-paired \
+--m-barcodes-file metadata.txt \
+--m-barcodes-column 'Golay Barcode' \
+--i-seqs ../import/paired-end-sequences.qza \
+--p-rev-comp-barcodes \
+--p-rev-comp-mapping-barcodes \
+--output-dir EPS_demux
+
+qiime demux summarize --i-data EPSS_demux/per_sample_sequences.qza --o-visualization EPSS_demux/demux.qzv
+```
+
+# DADA2
+
+**TODO:** See `slurm/q2_dada2.sbatch`, which runs in qiime2-2022.2 due to issues with 2022.11 on FIJI.
+**TODO:** Check trim params
+Trimmed both at 19 to make sure there are no primers still in the sequences. 
+Good quality reads on the whole.
+
+```{zsh, eval=F}
+qiime dada2 denoise-paired \
+--i-demultiplexed-seqs EPSS_demux/per_sample_sequences.qza \
+--p-trunc-len-f 151 --p-trunc-len-r 151 \
+--p-trim-left-f 19 --p-trim-left-r 19 \
+--p-n-threads 32 \
+--output-dir EPSS_dada2-results \
+--verbose
+
+qiime metadata tabulate \
+--m-input-file EPSS_dada2-results/denoising_stats.qza \
+--o-visualization EPSS_dada2-results/denoising_stats.qzv
+```
+
+
+# Filter samples
+```{zsh, eval=FALSE}
+qiime feature-table filter-samples \
+--i-table EPSS_dada2-results/table.qza \
+--m-metadata-file metadata.txt \
+--o-filtered-table EPSS_filtered_table.qza
+
+qiime feature-table summarize \
+--i-table EPSS_dada2-results/table.qza \
+--o-visualization EPSS_dada2-results/table.qzv \
+--m-sample-metadata-file metadata.txt
+
+```
+
+# SEPP (building phylogeny)
+
+Run using `slurm/q2_sepp.sbatch`, which runs:
+```{zsh, eval=F}
+qiime fragment-insertion sepp \
+--i-representative-sequences EPSS_dada2-results/representative_sequences.qza \
+--i-reference-database ../sepp-refs-silva-128.qza \
+--o-tree EPSS_insertion-tree-sepp.qza \
+--o-placements EPSS_insertion-placements-sep.qza \
+--p-threads 32
+
+qiime fragment-insertion filter-features \
+--i-table EPSS_filtered_table.qza \
+--i-tree EPSS_insertion-tree-sepp.qza \
+--o-filtered-table EPSS_filtered-table-sepp.qza \
+--o-removed-table EPSS_removed-table-sepp.qza
+
+```
+
+# Taxonomy classification
+Run using `slurm/q2_tax_class.sbatch`, which runs:
+```{zsh, eval=F}
+
+qiime feature-classifier classify-sklearn \
+--i-classifier ../silva-138-99-515-806-nb-classifier.qza \
+--i-reads EPSS_dada2-results/representative_sequences.qza \
+--output-dir EPSS_silva-classified
+
+qiime metadata tabulate \
+--m-input-file EPSS_silva-classified/classification.qza \
+--o-visualization EPSS_silva-classified/classification.qzv
+
+mv ../qiime/silva-classified/classification.qza ../qiime/taxonomy-silva.qza
+mv ../qiime/silva-classified/classification.qzv ../qiime/taxonomy-silva.qzv
+
+```
+
+# Filtering mitochondria and chloroplast
+Run using `slurm/q2_filter_mito_chloro.sbatch`, which runs:
+```{zsh, eval=F}
+qiime taxa filter-table \
+--i-table EPSS_filtered-table-sepp.qza \
+--i-taxonomy EPSS_silva-classified/classification.qza \
+--p-exclude mitochondria,chloroplast \
+--o-filtered-table EPSS_noMito_noChloro-filtered-table.qza
+
+qiime feature-table summarize \
+--i-table EPSS_noMito_noChloro-filtered-table.qza \
+--o-visualization EPSS_noMito_noChloro-filtered-table.qzv
+
+
+qiime taxa barplot \
+--i-table EPSS_noMito_noChloro-filtered-table.qza \
+--i-taxonomy EPSS_silva-classified/classification.qza \
+--m-metadata-file metadata.txt \
+--o-visualization EPSS_taxa_plot.qzv
+```
+
+# Core metrics phylogenetic
+```{zsh, eval=F}
+qiime diversity alpha-rarefaction \
+--i-table EPSS_noMito_noChloro-filtered-table.qza \
+--i-phylogeny EPSS_insertion-tree-sepp.qza \
+--o-visualization EPSS_rarefied-viz.qzv \
+--p-max-depth 54000
+
+qiime diversity core-metrics-phylogenetic \
+--i-phylogeny EPSS_insertion-tree-sepp.qza \
+--i-table EPSS_noMito_noChloro-filtered-table.qza \
+--p-sampling-depth 18000 \
+--m-metadata-file metadata.txt \
+--output-dir EPSS_core-diversity-results
+
+qiime taxa barplot \
+--i-table EPSS_core-diversity-results/rarefied_table.qza \
+--m-metadata-file metadata.txt \
+--i-taxonomy EPSS_silva-classified/classification.qza \
+--o-visualization EPSS_taxa_plot_post_rarefaction.qzv
+
+```
+
+
+
