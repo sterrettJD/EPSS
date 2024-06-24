@@ -12,6 +12,8 @@
 
 source activate qiime2-2021.4
 
+mkdir -p ../import 
+
 qiime tools import \
 --type EMPPairedEndSequences \
 --input-path ../raw_sequences/ \
