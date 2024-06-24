@@ -18,6 +18,6 @@ qiime demux emp-paired \
 --i-seqs ../import/paired-end-sequences.qza \
 --p-rev-comp-barcodes \
 --p-rev-comp-mapping-barcodes \
---output-dir EPS_demux
+--output-dir EPSS_demux
 
 qiime demux summarize --i-data EPSS_demux/per_sample_sequences.qza --o-visualization EPSS_demux/demux.qzv
