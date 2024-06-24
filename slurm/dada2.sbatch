@@ -14,8 +14,8 @@ source activate qiime2-2021.4
 
 qiime dada2 denoise-paired \
 --i-demultiplexed-seqs EPSS_demux/per_sample_sequences.qza \
---p-trunc-len-f 151 --p-trunc-len-r 151 \
---p-trim-left-f 19 --p-trim-left-r 19 \
+--p-trunc-len-f 237 --p-trunc-len-r 183 \
+--p-trim-left-f 19 --p-trim-left-r 47 \
 --p-n-threads 32 \
 --output-dir EPSS_dada2-results \
 --verbose
