@@ -9,6 +9,7 @@ Using QIIME2-2021.4.
 Raw sequences are in a dir `../raw_sequences/`, and metadata.txt holds the metadata.
 
 # Import 
+See `../slurm/import.sbatch`
 ```{zsh, eval=F}
 qiime tools import \
 --type EMPPairedEndSequences \
@@ -18,6 +19,7 @@ qiime tools import \
 ```
 
 # Demux
+See `../slurm/demux.sbatch`
 ```{zsh, eval=F}
 qiime demux emp-paired \
 --m-barcodes-file metadata.txt \
@@ -32,7 +34,7 @@ qiime demux summarize --i-data EPSS_demux/per_sample_sequences.qza --o-visualiza
 
 # DADA2
 
-**TODO:** See `slurm/q2_dada2.sbatch`, which runs in qiime2-2022.2 due to issues with 2022.11 on FIJI.
+See `slurm/q2_dada2.sbatch`
 **TODO:** Check trim params
 Trimmed both at 19 to make sure there are no primers still in the sequences. 
 Good quality reads on the whole.
@@ -53,6 +55,7 @@ qiime metadata tabulate \
 
 
 # Filter samples
+Also in `../slurm/dada2.sbatch`
 ```{zsh, eval=FALSE}
 qiime feature-table filter-samples \
 --i-table EPSS_dada2-results/table.qza \
@@ -86,9 +89,8 @@ qiime fragment-insertion filter-features \
 ```
 
 # Taxonomy classification
-Run using `slurm/q2_tax_class.sbatch`, which runs:
+Run using `../slurm/taxclass.sbatch`, which runs:
 ```{zsh, eval=F}
-
 qiime feature-classifier classify-sklearn \
 --i-classifier ../silva-138-99-515-806-nb-classifier.qza \
 --i-reads EPSS_dada2-results/representative_sequences.qza \
@@ -98,13 +100,10 @@ qiime metadata tabulate \
 --m-input-file EPSS_silva-classified/classification.qza \
 --o-visualization EPSS_silva-classified/classification.qzv
 
-mv ../qiime/silva-classified/classification.qza ../qiime/taxonomy-silva.qza
-mv ../qiime/silva-classified/classification.qzv ../qiime/taxonomy-silva.qzv
-
 ```
 
 # Filtering mitochondria and chloroplast
-Run using `slurm/q2_filter_mito_chloro.sbatch`, which runs:
+Also in `../slurm/taxclass.sbatch`
 ```{zsh, eval=F}
 qiime taxa filter-table \
 --i-table EPSS_filtered-table-sepp.qza \
@@ -125,6 +124,7 @@ qiime taxa barplot \
 ```
 
 # Core metrics phylogenetic
+See `../slurm/diversity.sbatch`
 ```{zsh, eval=F}
 qiime diversity alpha-rarefaction \
 --i-table EPSS_noMito_noChloro-filtered-table.qza \
