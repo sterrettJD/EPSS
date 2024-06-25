@@ -21,7 +21,7 @@ qiime diversity alpha-rarefaction \
 qiime diversity core-metrics-phylogenetic \
 --i-phylogeny EPSS_insertion-tree-sepp.qza \
 --i-table EPSS_noMito_noChloro-filtered-table.qza \
---p-sampling-depth 18000 \
+--p-sampling-depth 25324 \
 --m-metadata-file metadata.txt \
 --output-dir EPSS_core-diversity-results
 
