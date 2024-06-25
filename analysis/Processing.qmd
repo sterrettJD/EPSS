@@ -11,6 +11,8 @@ Raw sequences are in a dir `../raw_sequences/`, and metadata.txt holds the metad
 # Import 
 See `../slurm/import.sbatch`
 ```{zsh, eval=F}
+mkdir ../import
+
 qiime tools import \
 --type EMPPairedEndSequences \
 --input-path ../raw_sequences/ \
@@ -27,7 +29,7 @@ qiime demux emp-paired \
 --i-seqs ../import/paired-end-sequences.qza \
 --p-rev-comp-barcodes \
 --p-rev-comp-mapping-barcodes \
---output-dir EPS_demux
+--output-dir EPSS_demux
 
 qiime demux summarize --i-data EPSS_demux/per_sample_sequences.qza --o-visualization EPSS_demux/demux.qzv
 ```
@@ -35,15 +37,14 @@ qiime demux summarize --i-data EPSS_demux/per_sample_sequences.qza --o-visualiza
 # DADA2
 
 See `slurm/q2_dada2.sbatch`
-**TODO:** Check trim params
-Trimmed both at 19 to make sure there are no primers still in the sequences. 
-Good quality reads on the whole.
+Trimmed fwd at 19 to make sure there are no primers still in the sequences, truncated at 237 to keep reads longer until quality started to drop  below median PHRED score of 30. Trimmed reverse reads at 47 because there were some "spikes" of very low quality (>25% reads with PHRED < 10) up to position ~45. Truncated reverse reads at position 183 to keep median PHRED at each base position > 30.
+
 
 ```{zsh, eval=F}
 qiime dada2 denoise-paired \
 --i-demultiplexed-seqs EPSS_demux/per_sample_sequences.qza \
---p-trunc-len-f 151 --p-trunc-len-r 151 \
---p-trim-left-f 19 --p-trim-left-r 19 \
+--p-trunc-len-f 237 --p-trunc-len-r 183 \
+--p-trim-left-f 19 --p-trim-left-r 47 \
 --p-n-threads 32 \
 --output-dir EPSS_dada2-results \
 --verbose
@@ -73,6 +74,10 @@ qiime feature-table summarize \
 
 Run using `slurm/q2_sepp.sbatch`, which runs:
 ```{zsh, eval=F}
+cd ..
+wget https://data.qiime2.org/2021.4/common/sepp-refs-silva-128.qza
+cd analysis
+
 qiime fragment-insertion sepp \
 --i-representative-sequences EPSS_dada2-results/representative_sequences.qza \
 --i-reference-database ../sepp-refs-silva-128.qza \
@@ -91,6 +96,10 @@ qiime fragment-insertion filter-features \
 # Taxonomy classification
 Run using `../slurm/taxclass.sbatch`, which runs:
 ```{zsh, eval=F}
+cd ..
+wget https://data.qiime2.org/2021.4/common/silva-138-99-515-806-nb-classifier.qza
+cd analysis
+
 qiime feature-classifier classify-sklearn \
 --i-classifier ../silva-138-99-515-806-nb-classifier.qza \
 --i-reads EPSS_dada2-results/representative_sequences.qza \
@@ -125,6 +134,7 @@ qiime taxa barplot \
 
 # Core metrics phylogenetic
 See `../slurm/diversity.sbatch`
+Updated rarefaction depth from 18000 to 25324 since the lowest depth sample was 25325 reads.
 ```{zsh, eval=F}
 qiime diversity alpha-rarefaction \
 --i-table EPSS_noMito_noChloro-filtered-table.qza \
@@ -135,7 +145,7 @@ qiime diversity alpha-rarefaction \
 qiime diversity core-metrics-phylogenetic \
 --i-phylogeny EPSS_insertion-tree-sepp.qza \
 --i-table EPSS_noMito_noChloro-filtered-table.qza \
---p-sampling-depth 18000 \
+--p-sampling-depth 25324 \
 --m-metadata-file metadata.txt \
 --output-dir EPSS_core-diversity-results
 
