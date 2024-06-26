@@ -26,6 +26,7 @@ rownames(metadata) <- metadata$Sample.ID
 sample_data(pseq) <- metadata
 ```
 
+# Taxa bar plot at phylum level with genus microshades
 ```{r microshades}
 make_microshades_phylum <- function(pseq, subgroup, 
                                     sample_ids=FALSE, sort_phylum=NULL){
@@ -90,3 +91,43 @@ ggsave(plot=p,
        height=12, width=12)
 ```
 
+# Alpha diversity
+```{r}
+faith <- read_qza("EPSS_core-diversity-results/faith_pd_vector.qza")$data
+div_dat <- merge(metadata, faith, by.x="Sample.ID", by.y="row.names")
+observed_features <- read_qza("EPSS_core-diversity-results/observed_features_vector.qza")$data
+div_dat <- merge(div_dat, observed_features, by.x="Sample.ID", by.y="row.names")
+shannon <- read_qza("EPSS_core-diversity-results/shannon_vector.qza")$data
+div_dat <- merge(div_dat, shannon, by.x="Sample.ID", by.y="row.names")
+
+div_dat_melted <- div_dat %>% 
+  dplyr::select(c(faith_pd, observed_features, shannon_entropy, Group)) %>%
+  reshape2::melt(id.vars=c("Group"))
+
+div_dat_melted <- div_dat_melted %>%
+  mutate(variable = recode(variable,
+    "faith_pd" = "Faith's Phylogenetic Diversity",
+    "observed_features" = "Observed Amplicon Sequence Variants",
+    "shannon_entropy" = "Shannon Entropy"
+  ))
+
+# This is used with geom_blank to makesure y axes start at 0
+dummy_data <- data.frame(value=c(0,0,0),
+                         Group=c("Pet", "Pet", "Pet"),
+                         variable=c("Faith's Phylogenetic Diversity",
+                                    "Observed Amplicon Sequence Variants",
+                                    "Shannon Entropy"))
+p <- ggplot(div_dat_melted, 
+       mapping=aes(x=Group, y=value)) +
+  geom_boxplot(outliers=FALSE) +
+  geom_jitter(width=0.1) +
+  geom_blank(aes(y=value), data=dummy_data) +
+  facet_wrap(~variable, scales="free_y") +
+  theme_bw() +
+  labs(x="", y="Diversity Value") 
+
+p
+
+ggsave(plot=p, filename="../figures/Alpha-diversity-boxplots.pdf", 
+       height=6, width=10)
+```
