@@ -4,7 +4,7 @@ format: html
 editor: visual
 ---
 
-```{r setup, echo=F}
+```{r setup, echo=F, message=F}
 library(tidyverse)
 library(data.table)
 library(qiime2R)
@@ -27,7 +27,7 @@ sample_data(pseq) <- metadata
 ```
 
 # Taxa bar plot at phylum level with genus microshades
-```{r microshades}
+```{r microshades, warning=F, fig.height=10, fig.width=12}
 make_microshades_phylum <- function(pseq, subgroup, 
                                     sample_ids=FALSE, sort_phylum=NULL){
     # prep the microshades colors
@@ -98,7 +98,7 @@ nopet_color <- rgb(160, 159, 164, maxColorValue=255)
 ```
 
 # Alpha diversity
-```{r}
+```{r alpha_div, fig.height=6, fig.width=10}
 faith <- read_qza("EPSS_core-diversity-results/faith_pd_vector.qza")$data
 div_dat <- merge(metadata, faith, by.x="Sample.ID", by.y="row.names")
 observed_features <- read_qza("EPSS_core-diversity-results/observed_features_vector.qza")$data
@@ -143,7 +143,7 @@ ggsave(plot=p, filename="../figures/Alpha-diversity-boxplots.pdf",
 ```
 
 # PCoA
-```{r}
+```{r pcoa, fig.height=4, fig.width=6}
 wu <- read_qza("EPSS_core-diversity-results/weighted_unifrac_pcoa_results.qza")$data
 wu_explained <- format(round(wu$ProportionExplained*100, digits=1))
 wu_coords <- wu$Vectors
@@ -155,7 +155,7 @@ string_explained <- paste0(colnames(wu_coords), " (", wu_explained, "%)")
 wu_pcoa_dat <- merge(wu_coords, metadata, by.x="row.names", by.y="Sample.ID")
 wu_plot <- ggplot(wu_pcoa_dat, aes(x=`PC1`, y=`PC2`, fill=Group)) +
   geom_point(size=3, shape=21) +
-  stat_ellipse(aes(fill=Group), alpha=0.3, geom="polygon", level=0.95) +  # 95% CI ellipses
+  stat_ellipse(aes(fill=Group), alpha=0.2, geom="polygon", level=0.95) +  # 95% CI ellipses
   theme_bw() +
   labs(x=string_explained[1], y=string_explained[2]) +
   theme(legend.title = element_blank()) +
