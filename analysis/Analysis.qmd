@@ -1,0 +1,92 @@
+---
+title: "Analysis"
+format: html
+editor: visual
+---
+
+```{r setup, echo=F}
+library(tidyverse)
+library(data.table)
+library(qiime2R)
+library(phyloseq)
+library(microshades)
+library(cowplot)
+```
+
+# Load data
+```{r load_data}
+pseq <- qza_to_phyloseq(features="EPSS_noMito_noChloro-filtered-table.qza",
+                        tree="EPSS_insertion-tree-sepp.qza",
+                        taxonomy="EPSS_silva-classified/classification.qza")
+
+# Need to separately add the metadata to the phyloseq object for some reason
+metadata <- read.csv("metadata.txt", sep="\t")
+metadata[metadata$Group=="noPet", "Group"] <- "No Pet"
+rownames(metadata) <- metadata$Sample.ID
+sample_data(pseq) <- metadata
+```
+
+```{r microshades}
+make_microshades_phylum <- function(pseq, subgroup, 
+                                    sample_ids=FALSE, sort_phylum=NULL){
+    # prep the microshades colors
+    mdf_prep <- prep_mdf(pseq, subgroup_level=subgroup)
+    # sort the phylum names
+    phylum_table <- tax_glom(pseq, taxrank="Phylum", ) %>% otu_table()
+    phyla_otunames <- rownames(phylum_table)
+    
+    taxonomy_table <- tax_table(pseq)
+    phylums <- taxonomy_table[phyla_otunames,"Phylum"]
+    
+    sorted_phylums <- phylums[order(rowSums(phylum_table), decreasing=T)]
+    
+    # create the colors object
+    color_objs_GP <- create_color_dfs(mdf_prep, selected_groups=sorted_phylums[5:1], 
+                                      cvd = TRUE, subgroup_level=subgroup)
+    
+    if(!is.null(sort_phylum)){
+      color_objs_GP <- reorder_samples_by(color_objs_GP$mdf,
+                                        color_objs_GP$cdf,
+                                        order_tax=sort_phylum)  
+    }
+    
+    
+    # Extract
+    mdf_GP <- color_objs_GP$mdf
+    cdf_GP <- color_objs_GP$cdf
+    
+    # create a custom legend
+    GP_legend <-custom_legend(mdf_GP, cdf_GP, 
+                              legend_key_size=unit(0.4, "cm"),
+                              legend_text_size=10, subgroup_level=subgroup)
+    
+    # plot
+    plot <- plot_microshades(mdf_GP, cdf_GP)
+
+    
+    if (sample_ids==TRUE){
+        plot_1 <- plot + scale_y_continuous(labels = scales::percent, expand = expansion(0)) +
+        theme(legend.position = "none")  +
+        facet_grid(~PID, scales="free_x", space="free_x"
+                 )    
+    } else {
+        plot_1 <- plot + scale_y_continuous(labels = scales::percent, expand = expansion(0)) +
+        theme(legend.position = "none")  +
+        theme(axis.text.x = element_blank(),
+              axis.ticks.x = element_blank()) +
+        facet_grid(~Group, scales="free_x", space="free_x"
+                 )
+    }
+        
+    multi <- plot_grid(plot_1, GP_legend,  rel_widths = c(1, .25))
+    multi
+}
+
+p <- make_microshades_phylum(pseq, subgroup="Genus", sort_phylum="Firmicutes")
+p
+
+ggsave(plot=p, 
+       filename="../figures/Taxa-bars-phylum-genus.pdf", 
+       height=12, width=12)
+```
+
