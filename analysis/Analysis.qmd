@@ -4,7 +4,7 @@ format: html
 editor: visual
 ---
 
-```{r setup, echo=F, message=F}
+```{r setup, message=F}
 library(tidyverse)
 library(data.table)
 library(qiime2R)
@@ -98,6 +98,7 @@ nopet_color <- rgb(160, 159, 164, maxColorValue=255)
 ```
 
 # Alpha diversity
+## Plot
 ```{r alpha_div, fig.height=6, fig.width=10}
 faith <- read_qza("EPSS_core-diversity-results/faith_pd_vector.qza")$data
 div_dat <- merge(metadata, faith, by.x="Sample.ID", by.y="row.names")
@@ -142,7 +143,32 @@ ggsave(plot=p, filename="../figures/Alpha-diversity-boxplots.pdf",
        height=6, width=10)
 ```
 
-# PCoA
+## Difference between groups 
+
+::: {.panel-tabset}
+### Faith's PD
+
+```{r faith_t}
+t.test(faith_pd ~ Group, data=div_dat)
+```
+
+### Observed ASVs
+
+```{r observed_t}
+t.test(observed_features ~ Group, data=div_dat)
+```
+
+### Shannon entropy
+
+```{r shannon_t}
+t.test(shannon_entropy ~ Group, data=div_dat)
+
+```
+
+:::
+
+# Weighted UniFrac (Beta Diversity)
+## PCoA Plot
 ```{r pcoa, fig.height=4, fig.width=6}
 wu <- read_qza("EPSS_core-diversity-results/weighted_unifrac_pcoa_results.qza")$data
 wu_explained <- format(round(wu$ProportionExplained*100, digits=1))
@@ -166,4 +192,13 @@ wu_plot
 
 ggsave(plot=wu_plot, filename="../figures/Weighted_UniFrac_PCoA.pdf",
        height=4, width=6)
+```
+
+# PERMANOVA
+```{r permanova}
+wu_dist <- read_qza("EPSS_core-diversity-results/weighted_unifrac_distance_matrix.qza")$data
+# Make sure we only have the proper metadata samples, and they're in the right order
+permanova_metadata <- metadata[labels(wu_dist),]
+vegan::adonis2(wu_dist ~ Group, data=permanova_metadata)
+
 ```
