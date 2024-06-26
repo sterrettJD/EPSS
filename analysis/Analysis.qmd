@@ -91,6 +91,12 @@ ggsave(plot=p,
        height=12, width=12)
 ```
 
+# Colors
+```{r}
+pet_color <- rgb(182, 253, 170, maxColorValue=255)
+nopet_color <- rgb(160, 159, 164, maxColorValue=255)
+```
+
 # Alpha diversity
 ```{r}
 faith <- read_qza("EPSS_core-diversity-results/faith_pd_vector.qza")$data
@@ -111,6 +117,7 @@ div_dat_melted <- div_dat_melted %>%
     "shannon_entropy" = "Shannon Entropy"
   ))
 
+div_dat_melted$Group <- factor(div_dat_melted$Group, levels=c("Pet", "No Pet"))
 # This is used with geom_blank to makesure y axes start at 0
 dummy_data <- data.frame(value=c(0,0,0),
                          Group=c("Pet", "Pet", "Pet"),
@@ -120,14 +127,43 @@ dummy_data <- data.frame(value=c(0,0,0),
 p <- ggplot(div_dat_melted, 
        mapping=aes(x=Group, y=value)) +
   geom_boxplot(outliers=FALSE) +
-  geom_jitter(width=0.1) +
+  geom_jitter(width=0.1, aes(fill=Group), shape=21, size=2) +
   geom_blank(aes(y=value), data=dummy_data) +
   facet_wrap(~variable, scales="free_y") +
   theme_bw() +
-  labs(x="", y="Diversity Value") 
+  labs(x="", y="Diversity Value") +
+  scale_fill_manual(values=c("No Pet"=nopet_color,
+                              "Pet"=pet_color)) +
+  theme(legend.position="none")
 
 p
 
 ggsave(plot=p, filename="../figures/Alpha-diversity-boxplots.pdf", 
        height=6, width=10)
+```
+
+# PCoA
+```{r}
+wu <- read_qza("EPSS_core-diversity-results/weighted_unifrac_pcoa_results.qza")$data
+wu_explained <- format(round(wu$ProportionExplained*100, digits=1))
+wu_coords <- wu$Vectors
+rownames(wu_coords) <- wu_coords$SampleID
+wu_coords$SampleID <- NULL
+# add variance explained to PCo axesnames
+string_explained <- paste0(colnames(wu_coords), " (", wu_explained, "%)")
+
+wu_pcoa_dat <- merge(wu_coords, metadata, by.x="row.names", by.y="Sample.ID")
+wu_plot <- ggplot(wu_pcoa_dat, aes(x=`PC1`, y=`PC2`, fill=Group)) +
+  geom_point(size=3, shape=21) +
+  stat_ellipse(aes(fill=Group), alpha=0.3, geom="polygon", level=0.95) +  # 95% CI ellipses
+  theme_bw() +
+  labs(x=string_explained[1], y=string_explained[2]) +
+  theme(legend.title = element_blank()) +
+  scale_fill_manual(values=c("No Pet"=nopet_color,
+                              "Pet"=pet_color))
+
+wu_plot
+
+ggsave(plot=wu_plot, filename="../figures/Weighted_UniFrac_PCoA.pdf",
+       height=4, width=6)
 ```
